@@ -300,6 +300,7 @@ def test_gaussian_filter() -> None:
     _current_test_name = "test_gaussian_filter"
 
     f = make_gaussian_filter(7)
+
     f.data *= 100
 
     gt = load_image("figs/gaussian_filter_7.png")
