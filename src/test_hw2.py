@@ -1,6 +1,8 @@
 import math
 import os
 from typing import List
+
+import uwimg
 from uwimg import (
     Image,
     load_image,
@@ -35,6 +37,29 @@ from src.hw2.modify_image import (
 # Match C constant name
 EPS = 0.005
 PRINT_PASSES = True
+
+def _gt(path: str) -> str:
+    """Return .pillow variant when visionlib is unavailable."""
+    if uwimg._vision is None:
+        base, ext = os.path.splitext(path)
+        alt = base + ".pillow" + ext
+        if os.path.exists(alt):
+            return alt
+    return path
+
+# Hardcoded interpolation expected values — stb originals
+_NN_STB = (0.231373, 0.239216, 0.207843, 0.690196)
+_BL_STB = (0.231373, 0.237255, 0.206861, 0.678588)
+
+if uwimg._vision is not None:
+    _NN_EXP = _NN_STB
+    _BL_EXP = _BL_STB
+else:
+    try:
+        from src._pillow_expected import NN_EXPECTED as _NN_EXP, BL_EXPECTED as _BL_EXP
+    except ImportError:
+        _NN_EXP = _NN_STB
+        _BL_EXP = _BL_STB
 
 def free_image(im: Image) -> None:
     # Python GC handles it; keep for parity with C tests.
@@ -132,14 +157,14 @@ def test_nn_interpolate() -> None:
     _current_test_name = "test_nn_interpolate"
 
     im = load_image("data/dogsmall.jpg")
-    TEST(within_eps(nn_interpolate(im, -0.5, -0.5, 0), 0.231373, EPS),
-         "within_eps(nn_interpolate(im, -.5, -.5, 0)  , 0.231373, EPS)")
-    TEST(within_eps(nn_interpolate(im, -0.5, 0.5, 1), 0.239216, EPS),
-         "within_eps(nn_interpolate(im, -.5, .5, 1)   , 0.239216, EPS)")
-    TEST(within_eps(nn_interpolate(im, 0.499, 0.5, 2), 0.207843, EPS),
-         "within_eps(nn_interpolate(im, .499, .5, 2)  , 0.207843, EPS)")
-    TEST(within_eps(nn_interpolate(im, 14.2, 15.9, 1), 0.690196, EPS),
-         "within_eps(nn_interpolate(im, 14.2, 15.9, 1), 0.690196, EPS)")
+    TEST(within_eps(nn_interpolate(im, -0.5, -0.5, 0), _NN_EXP[0], EPS),
+         f"within_eps(nn_interpolate(im, -.5, -.5, 0)  , {_NN_EXP[0]}, EPS)")
+    TEST(within_eps(nn_interpolate(im, -0.5, 0.5, 1), _NN_EXP[1], EPS),
+         f"within_eps(nn_interpolate(im, -.5, .5, 1)   , {_NN_EXP[1]}, EPS)")
+    TEST(within_eps(nn_interpolate(im, 0.499, 0.5, 2), _NN_EXP[2], EPS),
+         f"within_eps(nn_interpolate(im, .499, .5, 2)  , {_NN_EXP[2]}, EPS)")
+    TEST(within_eps(nn_interpolate(im, 14.2, 15.9, 1), _NN_EXP[3], EPS),
+         f"within_eps(nn_interpolate(im, 14.2, 15.9, 1), {_NN_EXP[3]}, EPS)")
     free_image(im)
 
 
@@ -148,14 +173,14 @@ def test_bl_interpolate() -> None:
     _current_test_name = "test_bl_interpolate"
 
     im = load_image("data/dogsmall.jpg")
-    TEST(within_eps(bilinear_interpolate(im, -0.5, -0.5, 0), 0.231373, EPS),
-         "within_eps(bilinear_interpolate(im, -.5, -.5, 0)  , 0.231373, EPS)")
-    TEST(within_eps(bilinear_interpolate(im, -0.5, 0.5, 1), 0.237255, EPS),
-         "within_eps(bilinear_interpolate(im, -.5, .5, 1)   , 0.237255, EPS)")
-    TEST(within_eps(bilinear_interpolate(im, 0.499, 0.5, 2), 0.206861, EPS),
-         "within_eps(bilinear_interpolate(im, .499, .5, 2)  , 0.206861, EPS)")
-    TEST(within_eps(bilinear_interpolate(im, 14.2, 15.9, 1), 0.678588, EPS),
-         "within_eps(bilinear_interpolate(im, 14.2, 15.9, 1), 0.678588, EPS)")
+    TEST(within_eps(bilinear_interpolate(im, -0.5, -0.5, 0), _BL_EXP[0], EPS),
+         f"within_eps(bilinear_interpolate(im, -.5, -.5, 0)  , {_BL_EXP[0]}, EPS)")
+    TEST(within_eps(bilinear_interpolate(im, -0.5, 0.5, 1), _BL_EXP[1], EPS),
+         f"within_eps(bilinear_interpolate(im, -.5, .5, 1)   , {_BL_EXP[1]}, EPS)")
+    TEST(within_eps(bilinear_interpolate(im, 0.499, 0.5, 2), _BL_EXP[2], EPS),
+         f"within_eps(bilinear_interpolate(im, .499, .5, 2)  , {_BL_EXP[2]}, EPS)")
+    TEST(within_eps(bilinear_interpolate(im, 14.2, 15.9, 1), _BL_EXP[3], EPS),
+         f"within_eps(bilinear_interpolate(im, 14.2, 15.9, 1), {_BL_EXP[3]}, EPS)")
     free_image(im)
 
 
@@ -165,7 +190,7 @@ def test_nn_resize() -> None:
 
     im = load_image("data/dogsmall.jpg")
     resized = nn_resize(im, im.w * 4, im.h * 4)
-    gt = load_image("figs/dog4x-nn-for-test.png")
+    gt = load_image(_gt("figs/dog4x-nn-for-test.png"))
     TEST(same_image(resized, gt, EPS),
          "same_image(resized, gt, EPS)")
     free_image(im)
@@ -174,7 +199,7 @@ def test_nn_resize() -> None:
 
     im2 = load_image("data/dog.jpg")
     resized2 = nn_resize(im2, 713, 467)
-    gt2 = load_image("figs/dog-resize-nn.png")
+    gt2 = load_image(_gt("figs/dog-resize-nn.png"))
     TEST(same_image(resized2, gt2, EPS),
          "same_image(resized2, gt2, EPS)")
     free_image(im2)
@@ -188,7 +213,7 @@ def test_bl_resize() -> None:
 
     im = load_image("data/dogsmall.jpg")
     resized = bilinear_resize(im, im.w * 4, im.h * 4)
-    gt = load_image("figs/dog4x-bl.png")
+    gt = load_image(_gt("figs/dog4x-bl.png"))
     TEST(same_image(resized, gt, EPS),
          "same_image(resized, gt, EPS)")
     free_image(im)
@@ -197,7 +222,7 @@ def test_bl_resize() -> None:
 
     im2 = load_image("data/dog.jpg")
     resized2 = bilinear_resize(im2, 713, 467)
-    gt2 = load_image("figs/dog-resize-bil.png")
+    gt2 = load_image(_gt("figs/dog-resize-bil.png"))
     TEST(same_image(resized2, gt2, EPS),
          "same_image(resized2, gt2, EPS)")
     free_image(im2)
@@ -216,7 +241,7 @@ def test_multiple_resize() -> None:
         free_image(im)
         free_image(im1)
         im = im2
-    gt = load_image("figs/dog-multipleresize.png")
+    gt = load_image(_gt("figs/dog-multipleresize.png"))
     TEST(same_image(im, gt, EPS),
          "same_image(im, gt, EPS)")
     free_image(im)
@@ -232,7 +257,7 @@ def test_highpass_filter() -> None:
     blur = convolve_image(im, f, 0)
     clamp_image(blur)
 
-    gt = load_image("figs/dog-highpass.png")
+    gt = load_image(_gt("figs/dog-highpass.png"))
     TEST(same_image(blur, gt, EPS),
          "same_image(blur, gt, EPS)")
     free_image(im)
@@ -250,7 +275,7 @@ def test_emboss_filter() -> None:
     blur = convolve_image(im, f, 1)
     clamp_image(blur)
 
-    gt = load_image("figs/dog-emboss.png")
+    gt = load_image(_gt("figs/dog-emboss.png"))
     TEST(same_image(blur, gt, EPS),
          "same_image(blur, gt, EPS)")
     free_image(im)
@@ -268,7 +293,7 @@ def test_sharpen_filter() -> None:
     blur = convolve_image(im, f, 1)
     clamp_image(blur)
 
-    gt = load_image("figs/dog-sharpen.png")
+    gt = load_image(_gt("figs/dog-sharpen.png"))
     TEST(same_image(blur, gt, EPS),
          "same_image(blur, gt, EPS)")
     free_image(im)
@@ -286,7 +311,7 @@ def test_convolution() -> None:
     blur = convolve_image(im, f, 1)
     clamp_image(blur)
 
-    gt = load_image("figs/dog-box7.png")
+    gt = load_image(_gt("figs/dog-box7.png"))
     TEST(same_image(blur, gt, EPS),
          "same_image(blur, gt, EPS)")
     free_image(im)
@@ -319,7 +344,7 @@ def test_gaussian_blur() -> None:
     blur = convolve_image(im, f, 1)
     clamp_image(blur)
 
-    gt = load_image("figs/dog-gauss2.png")
+    gt = load_image(_gt("figs/dog-gauss2.png"))
     TEST(same_image(blur, gt, EPS),
          "same_image(blur, gt, EPS)")
     free_image(im)
@@ -363,8 +388,8 @@ def test_frequency_image() -> None:
     hfreq = sub_image(im, lfreq)
     reconstruct = add_image(lfreq, hfreq)
 
-    low_freq = load_image("figs/low-frequency.png")
-    high_freq = load_image("figs/high-frequency-clamp.png")
+    low_freq = load_image(_gt("figs/low-frequency.png"))
+    high_freq = load_image(_gt("figs/high-frequency-clamp.png"))
 
     clamp_image(lfreq)
     clamp_image(hfreq)
@@ -394,8 +419,8 @@ def test_sobel() -> None:
     feature_normalize2(mag)
     feature_normalize2(theta)
 
-    gt_mag = load_image("figs/magnitude.png")
-    gt_theta = load_image("figs/theta.png")
+    gt_mag = load_image(_gt("figs/magnitude.png"))
+    gt_theta = load_image(_gt("figs/theta.png"))
 
     TEST(gt_mag.w == mag.w and gt_theta.w == theta.w,
          "gt_mag.w == mag.w && gt_theta.w == theta.w")

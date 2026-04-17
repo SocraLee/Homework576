@@ -1,5 +1,7 @@
 import math
+import os
 
+import uwimg
 from uwimg import load_image, make_image, free_image
 from src.hw1.process_image import (
     get_pixel,
@@ -13,6 +15,15 @@ from src.hw1.process_image import (
 )
 
 EPS = 0.002
+
+def _gt(path: str) -> str:
+    """Return .pillow variant when visionlib is unavailable."""
+    if uwimg._vision is None:
+        base, ext = os.path.splitext(path)
+        alt = base + ".pillow" + ext
+        if os.path.exists(alt):
+            return alt
+    return path
 
 tests_total = 0
 tests_fail = 0
@@ -186,7 +197,7 @@ def test_shift():
 def test_rgb_to_hsv():
     im = load_image("data/dog.jpg")
     rgb_to_hsv(im)
-    hsv = load_image("figs/dog.hsv.png")
+    hsv = load_image(_gt("figs/dog.hsv.png"))
 
     TEST(same_image(im, hsv, EPS) == 1,
          "test_rgb_to_hsv", "same_image(im, hsv, EPS)", "src_py/test_hw1.py", 0)

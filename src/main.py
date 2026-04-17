@@ -16,6 +16,9 @@ def run_hw_test(hw_name: str):
     elif hw_name == "hw4":
         from .test_hw4 import test_hw4
         test_hw4()
+    elif hw_name == "hw6":
+        from .test_hw6 import test_hw6
+        test_hw6()
     else:
         print(f"Unknown homework: {hw_name}")
 
