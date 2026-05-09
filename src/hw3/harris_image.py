@@ -33,8 +33,8 @@ def describe_index(im, i: int) -> Descriptor:
     # to compensate some for exposure/lighting changes.
     for c in range(im.c):
         cval = im.data[c, i // im.w, i % im.w]
-        for dx in range(-w // 2, (w + 1) // 2):
-            for dy in range(-w // 2, (w + 1) // 2):
+        for dx in range(-(w // 2), (w + 1) // 2):
+            for dy in range(-(w // 2), (w + 1) // 2):
                 val = get_pixel(im, (i % im.w) + dx, (i // im.w) + dy, c)
                 d.data[count] = cval - val
                 count += 1

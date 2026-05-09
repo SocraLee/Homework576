@@ -83,17 +83,14 @@ def draw_inliers(a: Image, b: Image, H: np.ndarray, m: List[Match], n: int, thre
 # float thresh: threshold for corner/no corner. Typical: 1-5
 # int nms: window to perform nms on. Typical: 3
 def find_and_draw_matches(a: Image, b: Image, sigma: float, thresh: float, nms: int):
-    an = [0]
-    bn = [0]
     mn = [0]
-    ad = harris_corner_detector(a, sigma, thresh, nms, an)
-    bd = harris_corner_detector(b, sigma, thresh, nms, bn)
-    m = match_descriptors(ad, an[0], bd, bn[0], mn)
+    ad = harris_corner_detector(a, sigma, thresh, nms)
+    bd = harris_corner_detector(b, sigma, thresh, nms)
+    m = match_descriptors(ad, len(ad), bd, len(bd), mn)
 
-    mark_corners(a, ad, an[0])
-    mark_corners(b, bd, bn[0])
+    mark_corners(a, ad)
+    mark_corners(b, bd)
     lines = draw_matches(a, b, m, mn[0], 0)
-
     return lines
 
 # Calculates L1 distance between to floating point arrays.
@@ -278,26 +275,24 @@ def combine_images(a: Image, b: Image, H: np.ndarray):
 # int iters: number of RANSAC iterations. Typical: 1,000-50,000
 # int cutoff: RANSAC inlier cutoff. Typical: 10-100
 # int draw: flag to draw inliers.
-def panorama_image(a: Image, b: Image, sigma: float, thresh: float, nms: int, inlier_thresh: float, iters: int, cutoff: int, draw: int):
+def panorama_image(a: Image, b: Image, sigma: float = 2, thresh: float = 5, nms: int = 3, inlier_thresh: float = 3, iters: int = 10000, cutoff: int = 100, draw: int = 0):
     random.seed(10)
-    an = [0]
-    bn = [0]
     mn = [0]
 
     # Calculate corners and descriptors
-    ad = harris_corner_detector(a, sigma, thresh, nms, an)
-    bd = harris_corner_detector(b, sigma, thresh, nms, bn)
+    ad = harris_corner_detector(a, sigma, thresh, nms)
+    bd = harris_corner_detector(b, sigma, thresh, nms)
 
     # Find matches
-    m = match_descriptors(ad, an[0], bd, bn[0], mn)
+    m = match_descriptors(ad, len(ad), bd, len(bd), mn)
 
     # Run RANSAC to find the homography
     H = RANSAC(m, mn[0], inlier_thresh, iters, cutoff)
 
     if draw:
         # Mark corners and matches between images
-        mark_corners(a, ad, an[0])
-        mark_corners(b, bd, bn[0])
+        mark_corners(a, ad)
+        mark_corners(b, bd)
         inlier_matches = draw_inliers(a, b, H, m, mn[0], inlier_thresh)
         save_image(inlier_matches, "output/inliers")
 
