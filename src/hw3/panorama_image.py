@@ -263,13 +263,14 @@ def RANSAC(m: List[Match], n: int, thresh: float, k: int, cutoff: int) -> np.nda
             continue
         inliers = model_inliers(H, m, n, thresh)
         if inliers > best:
-            best = inliers
-            H_updated = compute_homography(m, inliers)
-            if H_updated is None:
+            H_new = compute_homography(m, inliers)
+            if H_new is None:
                 continue
+            best = inliers
+            Hb = H_new
             if inliers > cutoff:
-                return H_updated
-    return H_updated
+                return Hb
+    return Hb
 
 # Stitches two images together using a projective transformation.
 # image a, b: images to stitch.
