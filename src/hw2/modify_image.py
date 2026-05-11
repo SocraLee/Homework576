@@ -18,15 +18,18 @@ def nn_interpolate(im: Image, x: float, y: float, c: int) -> float:
 
 def nn_resize(im: Image, w: int, h: int) -> Image:
     # Uses nearest-neighbor interpolation to resize to (w, h).
+    # Use float32 to match C reference implementation precision (avoids round() boundary mismatches).
     new_im = make_image(w, h, im.c)
-    scale_x = im.w/w
-    bias_x = (scale_x - 1)/2
-    scale_y = im.h/h
-    bias_y = (scale_y - 1)/2
+    scale_x = np.float32(im.w) / np.float32(w)
+    bias_x = (scale_x - np.float32(1)) / np.float32(2)
+    scale_y = np.float32(im.h) / np.float32(h)
+    bias_y = (scale_y - np.float32(1)) / np.float32(2)
     for c in range(im.c):
         for y in range(h):
             for x in range(w):
-                new_im.data[c, y, x] = nn_interpolate(im, x * scale_x + bias_x, y * scale_y + bias_y, c)
+                fx = np.float32(x) * scale_x + bias_x
+                fy = np.float32(y) * scale_y + bias_y
+                new_im.data[c, y, x] = nn_interpolate(im, fx, fy, c)
     return new_im
 
 
@@ -52,15 +55,18 @@ def bilinear_interpolate(im: Image, x: float, y: float, c: int) -> float:
 
 
 def bilinear_resize(im: Image, w: int, h: int) -> Image:
+    # Use float32 to match C reference implementation precision.
     new_im = make_image(w, h, im.c)
-    scale_x = im.w/w
-    bias_x = (scale_x - 1)/2
-    scale_y = im.h/h
-    bias_y = (scale_y - 1)/2
+    scale_x = np.float32(im.w) / np.float32(w)
+    bias_x = (scale_x - np.float32(1)) / np.float32(2)
+    scale_y = np.float32(im.h) / np.float32(h)
+    bias_y = (scale_y - np.float32(1)) / np.float32(2)
     for c in range(im.c):
         for y in range(h):
             for x in range(w):
-                new_im.data[c, y, x] = bilinear_interpolate(im, x * scale_x + bias_x, y * scale_y + bias_y, c)
+                fx = np.float32(x) * scale_x + bias_x
+                fy = np.float32(y) * scale_y + bias_y
+                new_im.data[c, y, x] = bilinear_interpolate(im, fx, fy, c)
     return new_im
 
 

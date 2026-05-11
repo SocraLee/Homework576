@@ -2,7 +2,7 @@ import math
 import numpy as np
 from typing import List
 from src.hw1.process_image import get_pixel, set_pixel, copy_image
-from src.hw2.modify_image import make_gaussian_filter, make_gx_filter, make_gy_filter, convolve_image
+from src.hw2.modify_image import make_gaussian_filter, make_gx_filter, make_gy_filter, convolve_image, l1_normalize
 from uwimg import make_image
 
 class Point:
@@ -66,26 +66,43 @@ def mark_corners(im, d: List[Descriptor]) -> None:
 # float sigma: standard deviation of Gaussian.
 # returns: single row image of the filter.
 def make_1d_gaussian(sigma: float):
-    # TODO: make separable 1d Gaussian.
-    return make_image(1, 1, 1)
+    ksize = int(sigma * 6) | 1
+    g = make_image(ksize, 1, 1)
+    for i in range(ksize):
+        g.data[0, 0, i] = math.exp(-(i - ksize//2)**2 / (2 * sigma**2))
+    l1_normalize(g)
+    return g
+
 
 # Smooths an image using separable Gaussian filter.
 # image im: image to smooth.
 # float sigma: std dev. for Gaussian.
 # returns: smoothed image.
 def smooth_image(im, sigma: float):
-    # TODO: use two convolutions with 1d gaussian filter.
-    return copy_image(im)
+    g = make_1d_gaussian(sigma)
+    tmp = convolve_image(im, g, 1)
+    g_T = make_image(1,g.w,1)
+    g_T.data = g.data.reshape(1,g.w,1)
+    im = convolve_image(tmp, g_T, 1)
+    return im
 
 # Calculate the structure matrix of an image.
 # image im: the input image.
 # float sigma: std dev. to use for weighted sum.
 # returns: structure matrix. 1st channel is Ix^2, 2nd channel is Iy^2,
 #          third channel is IxIy.
-def structure_matrix(im, sigma: float):
+def structure_matrix(im, sigma):
+    gx = make_gx_filter()
+    gy = make_gy_filter()
+    ix = convolve_image(im, gx, 0)     
+    iy = convolve_image(im, gy, 0)
     S = make_image(im.w, im.h, 3)
-    # TODO: calculate structure matrix for im.
+    S.data[0] = ix.data[0] * ix.data[0]  
+    S.data[1] = iy.data[0] * iy.data[0]
+    S.data[2] = ix.data[0] * iy.data[0]    
+    S = smooth_image(S, sigma)              
     return S
+
 
 # Estimate the cornerness of each pixel given a structure matrix S.
 # image S: structure matrix for an image.
@@ -94,6 +111,9 @@ def cornerness_response(S):
     R = make_image(S.w, S.h, 1)
     # TODO: fill in R, "cornerness" for each pixel using the structure matrix.
     # We'll use formulation det(S) - alpha * trace(S)^2, alpha = .06.
+    det = S.data[0] * S.data[1] - S.data[2] * S.data[2]
+    trace = S.data[0] + S.data[1]
+    R.data[0] = det - 0.06 * trace * trace
     return R
 
 # Perform non-max supression on an image of feature responses.
@@ -107,6 +127,19 @@ def nms_image(im, w: int):
     #     for neighbors within w:
     #         if neighbor response greater than pixel response:
     #             set response to be very low (I use -999999 [why not 0??])
+    for y in range(im.h):
+        for x in range(im.w):
+            for i in range(-w, w + 1):
+                for j in range(-w, w + 1):
+                    nx = x + i
+                    ny = y + j
+                    if nx < 0 or nx >= im.w or ny < 0 or ny >= im.h:
+                        continue
+                    if im.data[0, ny, nx] > r.data[0, y, x]:
+                        r.data[0, y, x] = -999999
+                        break
+                if r.data[0, y, x] == -999999:
+                    break
     return r
 
 # Perform harris corner detection and extract features from the corners.
@@ -126,11 +159,15 @@ def harris_corner_detector(im, sigma: float, thresh: float, nms: int) -> List[De
     Rnms = nms_image(R, nms)
 
     # TODO: count number of responses over threshold
-    count = 1 # change this
-
+    mask = Rnms.data[0] > thresh
+    count = np.sum(mask)
+    ys, xs = np.nonzero(mask)
+    
     d = [Descriptor() for _ in range(count)]
-    # TODO: fill in array *d with descriptors of corners, use describe_index.
-
+    idx = 0
+    for y, x in zip(ys, xs):
+        d[idx] = describe_index(im, y * im.w + x)
+        idx += 1
     return d
 
 # Find and draw corners on an image.
