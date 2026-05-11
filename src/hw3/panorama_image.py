@@ -325,9 +325,10 @@ def combine_images(a: Image, b: Image, H: np.ndarray):
             a_pt = make_point(i + dx, j + dy)
             b_pt = project_point(H, a_pt)
             if 0 <= b_pt.x < b.w and 0 <= b_pt.y < b.h:
-                for k in range(b.c):
-                    val = bilinear_interpolate(b, b_pt.x, b_pt.y, k)
-                    set_pixel(c, i, j, k, val)
+                vals = [bilinear_interpolate(b, b_pt.x, b_pt.y, k) for k in range(b.c)]
+                if max(vals) > 0:
+                    for k in range(b.c):
+                        set_pixel(c, i, j, k, vals[k])
 
     return c
 
@@ -374,7 +375,7 @@ def cylindrical_project(im: Image, f: float):
     c = make_image(im.w, im.h, im.c)
     xc = im.w/2
     yc = im.h/2
-    
+
     for j in range(im.h):
         for i in range(im.w):
             theta = (i - xc) / f

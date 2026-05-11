@@ -97,16 +97,22 @@ def convolve_image(im: Image, filt: Image, preserve: int) -> Image:
     assert (im.c == filt.c) or (filt.c == 1)
     new_c = im.c if preserve == 1 else 1
     new_im = make_image(im.w, im.h, new_c)
+    # Vectorized cross-correlation; edge padding replicates get_pixel's clamp-to-boundary.
+    fh, fw = filt.h, filt.w
+    py, px = fh // 2, fw // 2
+    padded = np.pad(im.data, ((0, 0), (py, py), (px, px)), mode='edge')
     for c in range(im.c):
         filter_c = c if filt.c == im.c else 0
         out_c_idx = c if preserve == 1 else 0
-        for y in range(im.h):
-            for x in range(im.w):
-                val = 0
-                for fy in range(filt.h):
-                    for fx in range(filt.w):
-                        val += get_pixel(im, x + fx - (filt.w//2), y + fy - (filt.h//2), c) * get_pixel(filt, fx, fy, filter_c)
-                new_im.data[out_c_idx, y, x] += val
+        f = filt.data[filter_c]  # (fh, fw)
+        val = np.zeros((im.h, im.w), dtype=np.float64)
+        for fy in range(fh):
+            for fx in range(fw):
+                w = f[fy, fx]
+                if w == 0:
+                    continue
+                val += w * padded[c, fy:fy + im.h, fx:fx + im.w]
+        new_im.data[out_c_idx] += val.astype(new_im.data.dtype)
     return new_im
         
 
