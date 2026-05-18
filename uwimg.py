@@ -207,7 +207,7 @@ def make_model(layers):
     This replaces the C-struct version and hooks into our Python implementation.
     """
     # We dynamically import the python model class to avoid circular imports
-    from classifier_solution import model
+    from src.hw4.classifier import model
 
     m = model()
     m.n = len(layers)

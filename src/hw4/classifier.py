@@ -26,17 +26,18 @@ def activate_matrix(m, a):
         for j in range(m.cols):
             x = m.data[i][j]
             if a == 'LOGISTIC':
-                pass # TODO
+                m.data[i][j] = 1 / (1 + math.exp(-x))
             elif a == 'RELU':
-                pass # TODO
+                m.data[i][j] = max(0, x)
             elif a == 'LRELU':
-                pass # TODO
+                m.data[i][j] = max(0.1 * x, x)
             elif a == 'SOFTMAX':
-                pass # TODO
+                m.data[i][j] = math.exp(x)
             sum_val += m.data[i][j]
 
         if a == 'SOFTMAX':
-            pass # TODO: have to normalize by sum if we are using SOFTMAX
+            for j in range(m.cols):
+                m.data[i][j] /= sum_val
 
 # Calculates the gradient of an activation function and multiplies it into
 # the delta for a layer
@@ -48,6 +49,12 @@ def gradient_matrix(m, a, d):
         for j in range(m.cols):
             x = m.data[i][j]
             # TODO: multiply the correct element of d by the gradient
+            if a == 'LOGISTIC':
+                d.data[i][j] *= x * (1 - x)
+            elif a == 'RELU':
+                d.data[i][j] *= 1 if x > 0 else 0
+            elif a == 'LRELU':
+                d.data[i][j] *= 1 if x > 0 else 0.1
 
 # Forward propagate information through a layer
 # layer *l: pointer to the layer
@@ -58,7 +65,9 @@ def forward_layer(l, inp):
 
     # TODO: fix this! multiply input by weights and apply activation function.
     out = make_matrix(inp.rows, l.w.cols)
-
+    out = matrix_mult_matrix(inp, l.w)
+    activate_matrix(out, l.activation)
+    
     free_matrix(l.out)  # free the old output
     l.out = out         # Save the current output for gradient calculation
     return out
@@ -71,18 +80,18 @@ def backward_layer(l, delta):
     # 1.4.1
     # delta is dL/dy
     # TODO: modify it in place to be dL/d(xw)
-
+    gradient_matrix(l.out, l.activation, delta)
 
     # 1.4.2
     # TODO: then calculate dL/dw and save it in l->dw
     free_matrix(l.dw)
-    dw = make_matrix(l.w.rows, l.w.cols) # replace this
+    dw = matrix_mult_matrix(transpose_matrix(l.inp), delta)
     l.dw = dw
 
 
     # 1.4.3
     # TODO: finally, calculate dL/dx and return it.
-    dx = make_matrix(l.inp.rows, l.inp.cols) # replace this
+    dx = matrix_mult_matrix(delta, transpose_matrix(l.w))
 
     return dx
 
@@ -95,13 +104,15 @@ def update_layer(l, rate, momentum, decay):
     # TODO:
     # Calculate Δw_t = dL/dw_t - λw_t + mΔw_{t-1}
     # save it to l->v
-
+    delta_w = axpy_matrix(-decay, l.w, l.dw)
+    delta_w = axpy_matrix(momentum, l.v, delta_w)
+    l.v = delta_w
 
     # Update l->w
-
+    l.w = axpy_matrix(rate, l.v, l.w)
 
     # Remember to free any intermediate results to avoid memory leaks
-    pass
+    
 
 # Make a new layer for our model
 # int input: number of inputs to the layer
